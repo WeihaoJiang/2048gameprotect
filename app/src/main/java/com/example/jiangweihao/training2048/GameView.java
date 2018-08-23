@@ -14,6 +14,7 @@ import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.ScaleAnimation;
 import android.widget.GridLayout;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +38,7 @@ public class GameView extends GridLayout implements View.OnTouchListener {
     // 最高记录
     private int mHighScore;
     // 目标分数
-    private int mTarget;
+    private int mTarget = 2048;
 
     public GameView(Context context) {
         super(context);
@@ -81,17 +82,17 @@ public class GameView extends GridLayout implements View.OnTouchListener {
 
     /**
      * 初始化游戏界面
+     *
      * @param cardSize
      */
     private void initGameView(int cardSize) {
         removeAllViews();
-        GameItem card;
+        GameItem item;
         for (int i = 0; i < mGameLines; i++) {
             for (int j = 0; j < mGameLines; j++) {
-                card = new GameItem(getContext(), 0);
-                addView(card, cardSize, cardSize);
-                // 初始化GameMatrix全部为0 空格List为所有
-                mGameMatrix[i][j] = card;
+                item = new GameItem(getContext(), 0);
+                addView(item, cardSize, cardSize);
+                mGameMatrix[i][j] = item;
                 mBlanks.add(new Point(i, j));
             }
         }
@@ -129,20 +130,24 @@ public class GameView extends GridLayout implements View.OnTouchListener {
     }
 
     /**
-     * 生成动画
+     * 生成过度动画
      *
      * @param target GameItem
      */
     private void animCreate(GameItem target) {
         ScaleAnimation sa = new ScaleAnimation(0.1f, 1, 0.1f, 1,
                 Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
-        sa.setDuration(100);
+        sa.setDuration(300);
         target.setAnimation(null);
         target.getItemView().startAnimation(sa);
     }
 
 
-
+    /**
+     * 获取屏幕参数
+     *
+     * @return
+     */
     private int getDeviceDensity() {
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager wm = (WindowManager) getContext().getSystemService(
@@ -157,6 +162,7 @@ public class GameView extends GridLayout implements View.OnTouchListener {
      * @param offsetX offsetX
      * @param offsetY offsetY
      */
+    // TODO: 2018/8/23 copy群英传
     private void judgeDirection(int offsetX, int offsetY) {
         int density = getDeviceDensity();
         int slideDis = 5 * density;
@@ -228,64 +234,34 @@ public class GameView extends GridLayout implements View.OnTouchListener {
      */
     private void checkCompleted() {
         int result = checkNums();
-        if (result == 0) {
-            if (Config.SCROE > mHighScore) {
-                SharedPreferences.Editor editor = Config.mSp.edit();
-                editor.putInt(Config.KEY_HIGH_SCROE, Config.SCROE);
-                editor.apply();
-                Game.getGameActivity().setScore(Config.SCROE, 1);
-                Config.SCROE = 0;
-            }
+        if (result == 2) {
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-            builder.setTitle("Game Over")
-                    .setPositiveButton("Again",
-                            new DialogInterface.OnClickListener() {
-
-                                @Override
-                                public void onClick(DialogInterface arg0,
-                                                    int arg1) {
-                                    startGame();
-                                }
-                            }).create().show();
-            Config.SCROE = 0;
-        } else if (result == 2) {
+            builder.setTitle("恭喜通关")
+                    .setPositiveButton("在玩一次", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            startGame();
+                        }
+                    });
+            builder.setNegativeButton("不了", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    Game.getGameActivity().finish();
+                    Toast.makeText(getContext(), "游戏结束", Toast.LENGTH_SHORT).show();
+                }
+            });
+            AlertDialog dialog = builder.create();
+            dialog.show();
+        }
+        else if (result == 0){
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-            builder.setTitle("Mission Accomplished")
-                    .setPositiveButton("Again",
-                            new DialogInterface.OnClickListener() {
-
-                                @Override
-                                public void onClick(DialogInterface arg0,
-                                                    int arg1) {
-                                    // 重新开始
-                                    startGame();
-                                }
-                            })
-                    .setNegativeButton("Continue",
-                            new DialogInterface.OnClickListener() {
-
-                                @Override
-                                public void onClick(DialogInterface arg0,
-                                                    int arg1) {
-                                    // 继续游戏 修改target
-                                    SharedPreferences.Editor editor = Config.mSp.edit();
-                                    if (mTarget == 1024) {
-                                        editor.putInt(Config.KEY_GAME_GOAL, 2048);
-                                        mTarget = 2048;
-                                        Game.getGameActivity().setGoal(2048);
-                                    } else if (mTarget == 2048) {
-                                        editor.putInt(Config.KEY_GAME_GOAL, 4096);
-                                        mTarget = 4096;
-                                        Game.getGameActivity().setGoal(4096);
-                                    } else {
-                                        editor.putInt(Config.KEY_GAME_GOAL, 4096);
-                                        mTarget = 4096;
-                                        Game.getGameActivity().setGoal(4096);
-                                    }
-                                    editor.apply();
-                                }
-                            }).create().show();
-            Config.SCROE = 0;
+            builder.setTitle("游戏结束")
+                    .setPositiveButton("在玩一次", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            startGame();
+                        }
+                    });
         }
     }
 
@@ -294,22 +270,6 @@ public class GameView extends GridLayout implements View.OnTouchListener {
         initGameView(Config.mItemSize);
     }
 
-
-    /**
-     * 判断是否移动过(是否需要新增Item)
-     *
-     * @return 是否移动
-     */
-    private boolean isMoved() {
-        for (int i = 0; i < mGameLines; i++) {
-            for (int j = 0; j < mGameLines; j++) {
-                if (mGameMatrixHistory[i][j] != mGameMatrix[i][j].getNum()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
 
     @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
@@ -324,11 +284,11 @@ public class GameView extends GridLayout implements View.OnTouchListener {
                 mEndX = (int) motionEvent.getX();
                 mEndY = (int) motionEvent.getY();
                 judgeDirection(mEndX - mStartX, mEndY - mStartY);
-                if (isMoved()) {
-                    addRandomNum();
-                    // 修改显示分数
-                    Game.getGameActivity().setScore(Config.SCROE, 0);
-                }
+
+                addRandomNum();
+                // 修改显示分数
+                Game.getGameActivity().setScore(Config.SCROE, 0);
+
                 checkCompleted();
                 break;
             default:
@@ -336,6 +296,7 @@ public class GameView extends GridLayout implements View.OnTouchListener {
         }
         return true;
     }
+
 
     /**
      * 滑动事件：上
@@ -376,7 +337,6 @@ public class GameView extends GridLayout implements View.OnTouchListener {
             mCalList.clear();
         }
     }
-
     /**
      * 滑动事件：下
      */
@@ -427,8 +387,8 @@ public class GameView extends GridLayout implements View.OnTouchListener {
         for (int i = 0; i < mGameLines; i++) {
             for (int j = 0; j < mGameLines; j++) {
                 int currentNum = mGameMatrix[i][j].getNum();
-                if (currentNum != 0) {
-                    if (mKeyItemNum == -1) {
+                if (currentNum != 0){
+                    if (mKeyItemNum == -1){
                         mKeyItemNum = currentNum;
                     } else {
                         if (mKeyItemNum == currentNum) {
@@ -451,7 +411,7 @@ public class GameView extends GridLayout implements View.OnTouchListener {
             for (int j = 0; j < mCalList.size(); j++) {
                 mGameMatrix[i][j].setNum(mCalList.get(j));
             }
-            for (int m = mCalList.size(); m < mGameLines; m++) {
+            for (int m = mCalList.size(); m < mGameLines; m++){
                 mGameMatrix[i][m].setNum(0);
             }
             // 重置行参数
