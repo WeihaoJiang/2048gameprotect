@@ -109,11 +109,4 @@ public class Game extends Activity implements View.OnClickListener {
         }
     }
 
-    /**
-     * 获取最高记录
-     */
-    private void getHighScore() {
-        int score = Config.mSp.getInt(Config.KEY_HIGH_SCROE, 0);
-        setScore(score, 1);
-    }
 }
